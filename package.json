@@ -1,0 +1,33 @@
+{
+  "name": "fleetmaster-backend",
+  "version": "1.0.0",
+  "description": "Fleet Management Dashboard Backend",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "build": "echo 'No build step required'",
+    "test": "echo 'Add tests here'"
+  },
+  "keywords": [
+    "fleet",
+    "management",
+    "telemetry",
+    "gps"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.88.0",
+    "axios": "^1.13.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.1",
+    "express-async-errors": "^3.1.1",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.11"
+  }
+}
