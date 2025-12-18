@@ -12,21 +12,39 @@ const app = express();
 
 app.use(
   cors({
-    origin: [
-      'http://localhost:3000',
-      'https://fm-4-0-frontend.onrender.com',
-      'https://fm-4-0-7kgj-5bzyphxw3-azads-projects-d43d3e52.vercel.app'
-    ],
+    origin: (origin, callback) => {
+      // allow non-browser requests (Postman, server-to-server)
+      if (!origin) return callback(null, true);
+
+      // allow localhost
+      if (origin.startsWith('http://localhost')) {
+        return callback(null, true);
+      }
+
+      // allow ALL Vercel preview + prod URLs
+      if (origin.endsWith('.vercel.app')) {
+        return callback(null, true);
+      }
+
+      // allow Render frontend (if any)
+      if (origin.endsWith('.onrender.com')) {
+        return callback(null, true);
+      }
+
+      return callback(new Error('Not allowed by CORS'));
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
       'Content-Type',
       'Authorization',
       'x-role',
       'x-vehicle-id',
-      'x-fleet-id'
+      'x-fleet-id',
     ],
   })
 );
+
+
 
 // 🔥 THIS IS MANDATORY
 app.options('*', cors());
