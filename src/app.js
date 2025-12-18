@@ -13,26 +13,29 @@ const app = express();
 /* =========================
    CORS CONFIG (FIXED)
 ========================= */
+
+
 app.use(
   cors({
     origin: [
       'http://localhost:3000',
-      'https://fm-4-0-7kgj-5bzyphxw3-azads-projects-d43d3e52.vercel.app'
+      'http://localhost:5173',
+      'https://fm-4-0-7kgj-98e2cpaje-azads-projects-d43d3e52.vercel.app',
     ],
+    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
       'Content-Type',
       'Authorization',
       'x-role',
       'x-fleet-id',
-      'x-vehicle-id'
+      'x-vehicle-id',
     ],
   })
 );
 
-// 🔥 THIS LINE IS CRITICAL FOR PREFLIGHT
+// 🔥 REQUIRED FOR PREFLIGHT
 app.options('*', cors());
-
 app.use(express.json());
 
 /* =========================
