@@ -10,19 +10,27 @@ dotenv.config();
 ============================== */
 const app = express();
 
-app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'https://fm-4-0-frontend.onrender.com',
-  ],
-  methods: ['GET', 'POST'],
-  allowedHeaders: [
-    'Content-Type',
-    'x-role',
-    'x-vehicle-id',
-    'x-fleet-id',
-  ],
-}));
+app.use(
+  cors({
+    origin: [
+      'http://localhost:3000',
+      'https://fm-4-0-frontend.onrender.com',
+      'https://fm-4-0-7kgj-5bzyphxw3-azads-projects-d43d3e52.vercel.app'
+    ],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'x-role',
+      'x-vehicle-id',
+      'x-fleet-id'
+    ],
+  })
+);
+
+// 🔥 THIS IS MANDATORY
+app.options('*', cors());
+
 
 app.use(express.json());
 
