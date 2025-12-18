@@ -9,7 +9,21 @@ dotenv.config();
    APP INIT
 ============================== */
 const app = express();
-app.use(cors());
+
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'https://fm-4-0-frontend.onrender.com',
+  ],
+  methods: ['GET', 'POST'],
+  allowedHeaders: [
+    'Content-Type',
+    'x-role',
+    'x-vehicle-id',
+    'x-fleet-id',
+  ],
+}));
+
 app.use(express.json());
 
 /* ==============================
@@ -21,7 +35,7 @@ const supabase = createClient(
 );
 
 /* ==============================
-   SIMPLE AUTH (TEMP)
+   SIMPLE AUTH (TEMP – HEADER BASED)
 ============================== */
 function authenticate(req, res, next) {
   const role = req.headers['x-role'];
@@ -59,7 +73,11 @@ function requireOwner(req, res, next) {
    HEALTH CHECK
 ============================== */
 app.get('/', (req, res) => {
-  res.send('✅ Fleet Location Backend Running');
+  res.json({
+    status: 'ok',
+    service: 'Fleet Location Backend',
+    time: new Date().toISOString(),
+  });
 });
 
 /* ==============================
@@ -74,12 +92,47 @@ app.post(
       const { latitude, longitude, speed, ignition } = req.body;
       const { vehicle_id } = req.user;
 
+      /* ---------- Validation ---------- */
       if (!vehicle_id || latitude == null || longitude == null) {
         return res.status(400).json({
           message: 'vehicle_id, latitude, longitude required',
         });
       }
 
+      if (
+        latitude < -90 || latitude > 90 ||
+        longitude < -180 || longitude > 180
+      ) {
+        return res.status(400).json({
+          message: 'Invalid GPS coordinates',
+        });
+      }
+
+      if (speed != null && (speed < 0 || speed > 180)) {
+        return res.status(400).json({
+          message: 'Invalid speed value',
+        });
+      }
+
+      /* ---------- Rate limit (per vehicle) ---------- */
+      const { data: last } = await supabase
+        .from('gps_logs')
+        .select('recorded_at')
+        .eq('vehicle_id', vehicle_id)
+        .order('recorded_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (last) {
+        const diffMs =
+          Date.now() - new Date(last.recorded_at).getTime();
+
+        if (diffMs < 3000) {
+          return res.json({ ignored: true });
+        }
+      }
+
+      /* ---------- Insert GPS ---------- */
       const { error } = await supabase.from('gps_logs').insert([
         {
           vehicle_id,
@@ -101,7 +154,7 @@ app.post(
 );
 
 /* ==============================
-   ADD VEHICLE FROM FLEET SETTINGS
+   ADD / ASSIGN VEHICLE (FLEET)
 ============================== */
 app.post(
   '/api/fleet/assign-vehicle',
@@ -114,7 +167,7 @@ app.post(
 
       if (!fleet_id) {
         return res.status(400).json({
-          message: 'fleet_id missing (send x-fleet-id header)',
+          message: 'fleet_id missing (x-fleet-id header)',
         });
       }
 
@@ -124,12 +177,12 @@ app.post(
         });
       }
 
-      // ensure fleet user exists
+      /* Ensure fleet exists */
       await supabase.from('fleet_users').upsert([
         { fleet_id },
       ]);
 
-      // check if vehicle exists
+      /* Find vehicle */
       let { data: vehicle, error: findError } = await supabase
         .from('vehicles')
         .select('*')
@@ -140,25 +193,26 @@ app.post(
         throw findError;
       }
 
-      // create vehicle if not exists
+      /* Create vehicle if missing */
       if (!vehicle) {
-        const { data: newVehicle, error: createError } = await supabase
-          .from('vehicles')
-          .insert([
-            {
-              vehicle_number,
-              vehicle_type: vehicle_type || 'FLEET',
-              status: 'ACTIVE',
-            },
-          ])
-          .select()
-          .single();
+        const { data: newVehicle, error: createError } =
+          await supabase
+            .from('vehicles')
+            .insert([
+              {
+                vehicle_number,
+                vehicle_type: vehicle_type || 'FLEET',
+                status: 'ACTIVE',
+              },
+            ])
+            .select()
+            .single();
 
         if (createError) throw createError;
         vehicle = newVehicle;
       }
 
-      // assign vehicle to fleet
+      /* Assign vehicle */
       const { error: updateError } = await supabase
         .from('fleet_users')
         .update({ assigned_vehicle_id: vehicle.vehicle_id })
@@ -179,7 +233,7 @@ app.post(
 );
 
 /* ==============================
-   GET DISTANCE COVERED (OWNER)
+   GET DISTANCE (OWNER)
 ============================== */
 app.get(
   '/api/fleet/distance',
@@ -195,20 +249,53 @@ app.get(
         });
       }
 
+      const startTime = new Date(start).toISOString();
+      const endTime = new Date(end).toISOString();
+
+      /* ---------- Distance cache ---------- */
+      const { data: cached } = await supabase
+        .from('distance_logs')
+        .select('distance_km')
+        .eq('vehicle_id', vehicle_id)
+        .eq('start_time', startTime)
+        .eq('end_time', endTime)
+        .single();
+
+      if (cached) {
+        return res.json({
+          vehicle_id,
+          distance_km: cached.distance_km,
+          cached: true,
+        });
+      }
+
+      /* ---------- Calculate distance ---------- */
       const { data, error } = await supabase.rpc(
         'calculate_distance_km',
         {
           v_id: vehicle_id,
-          start_time: start,
-          end_time: end,
+          start_time: startTime,
+          end_time: endTime,
         }
       );
 
       if (error) throw error;
 
+      const distance = data || 0;
+
+      /* ---------- Cache result ---------- */
+      await supabase.from('distance_logs').insert([
+        {
+          vehicle_id,
+          start_time: startTime,
+          end_time: endTime,
+          distance_km: distance,
+        },
+      ]);
+
       res.json({
         vehicle_id,
-        distance_km: data || 0,
+        distance_km: distance,
       });
     } catch (err) {
       console.error('Distance calc error:', err);
