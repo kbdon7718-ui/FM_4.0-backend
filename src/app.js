@@ -4,6 +4,8 @@ import cors from 'cors';
 import fuelRoutes from './fuel.backend.js';
 import vehicleRoutes from './vehicles.js';
 import slaRoutes from './sla-reports.js';
+import liveTrackingRoutes from './livetracking.js';
+
 import gpsBackend from './gps.backend.js';
 
 const app = express();
@@ -40,6 +42,9 @@ app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/fuel', fuelRoutes);
 app.use('/api/sla', slaRoutes);
 app.use('/api/gps', gpsBackend);
+
+app.use(liveTrackingRoutes);
+
 
 app.get('/', (req, res) => {
   res.send('Fleet Backend Running');
