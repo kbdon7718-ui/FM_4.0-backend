@@ -5,6 +5,10 @@ import fuelRoutes from './fuel.backend.js';
 import vehicleRoutes from './vehicles.js';
 import slaRoutes from './sla-reports.js';
 import liveTrackingRoutes from './livetracking.js';
+import ownerDashboardRoutes from './ownerdashboard.js';
+import geofenceRoutes from './geofencing.js';
+
+
 
 import gpsBackend from './gps.backend.js';
 
@@ -45,8 +49,10 @@ app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/fuel', fuelRoutes);
 app.use('/api/sla', slaRoutes);
 app.use('/api/gps', gpsBackend);
-
+app.use(ownerDashboardRoutes);
 app.use(liveTrackingRoutes);
+
+app.use(geofenceRoutes);
 
 
 app.get('/', (req, res) => {
