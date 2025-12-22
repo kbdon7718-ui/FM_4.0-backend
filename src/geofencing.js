@@ -69,7 +69,7 @@ router.post('/api/geofences', async (req, res) => {
       center_lat,
       center_lng,
       radius_meters,
-      expected_time_minutes,
+     
     } = req.body;
 
     const { error } = await supabase.from('geofences').insert([
@@ -78,8 +78,7 @@ router.post('/api/geofences', async (req, res) => {
         location_name,
         center: `POINT(${center_lng} ${center_lat})`,
         radius_meters,
-        expected_time_minutes,
-      },
+        },
     ]);
 
     if (error) throw error;
@@ -266,22 +265,7 @@ router.get('/api/companies', async (req, res) => {
 /* ============================
    GET COMPANY SHIFTS (FRONTEND)
 ============================ */
-router.get('/api/company-shifts/:company_id', async (req, res) => {
-  const { company_id } = req.params;
 
-  const { data, error } = await supabase
-    .from('company_shifts')
-    .select('*')
-    .eq('company_id', company_id)
-    .eq('is_active', true)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    return res.status(500).json({ error: error.message });
-  }
-
-  res.json(data);
-});
 
 /* ============================
    UPDATE GEOFENCE
@@ -319,17 +303,32 @@ router.delete('/api/geofences/:id', async (req, res) => {
 });
 
 
-router.get('/api/company-shifts/:company_id', async (req, res) => {
-  const { company_id } = req.params;
+ //for[ ✏️ ] [ 🗑️ ] [ ➕ Assign Vehicle ]
+router.post('/api/geofence-assignments', async (req, res) => {
+  const {
+    geofence_id,
+    vehicle_id,
+    expected_entry_time,
+    grace_minutes,
+  } = req.body;
 
-  const { data, error } = await supabase
-    .from('company_shifts')
-    .select('*')
-    .eq('company_id', company_id)
-    .eq('is_active', true);
+  if (!geofence_id || !vehicle_id || !expected_entry_time) {
+    return res.status(400).json({ error: 'Invalid payload' });
+  }
+
+  const { error } = await supabase
+    .from('geofence_assignments')
+    .insert([{
+      geofence_id,
+      vehicle_id,
+      expected_entry_time,
+      grace_minutes: grace_minutes || 0,
+    }]);
 
   if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+
+  res.json({ success: true });
 });
+
 
 export default router;

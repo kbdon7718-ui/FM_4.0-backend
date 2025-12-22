@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 
 //simport fuelRoutes from './fuel.js';
-import vehicleRoutes from './vehicles.js';
+//import vehicleRoutes from './vehicles.js';
 import slaRoutes from './sla-reports.js';
 import liveTrackingRoutes from './livetracking.js';
 import ownerDashboardRoutes from './ownerdashboard.js';
@@ -23,7 +23,7 @@ app.use(
     origin: [
       'http://localhost:3000',
       'http://localhost:5173',
-      'https://fm-4-0-7kgj-98e2cpaje-azads-projects-d43d3e52.vercel.app',
+      'https://fm-4-0-7kgj-aisgadiro-azads-projects-d43d3e52.vercel.app',
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -52,7 +52,7 @@ app.use(liveTrackingRoutes);
 app.use('/api/fleet', fleetlocation);
 app.use(geofenceRoutes);
 
-app.use('/api', addVehicleRoutes);
+app.use('/api',addVehicleRoutes);
 
 
 app.get('/', (req, res) => {
