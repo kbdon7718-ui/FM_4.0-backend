@@ -1,24 +1,23 @@
 import express from 'express';
 import cors from 'cors';
 
-import fuelRoutes from './fuel.backend.js';
+//simport fuelRoutes from './fuel.js';
 import vehicleRoutes from './vehicles.js';
 import slaRoutes from './sla-reports.js';
 import liveTrackingRoutes from './livetracking.js';
 import ownerDashboardRoutes from './ownerdashboard.js';
 import geofenceRoutes from './geofencing.js';
-
-
-
+import fleetlocation from './fleetlocation.js';
 import gpsBackend from './gps.backend.js';
+import fuelRoutes from "./fuel.js";
+import addVehicleRoutes from './addVehicle.js';
+
 
 const app = express();
 
 /* =========================
-   CORS CONFIG (FIXED)
+   CORS CONFIG
 ========================= */
-
-
 app.use(
   cors({
     origin: [
@@ -38,21 +37,22 @@ app.use(
   })
 );
 
-// 🔥 REQUIRED FOR PREFLIGHT
 app.options('*', cors());
 app.use(express.json());
 
 /* =========================
    ROUTES
 ========================= */
-app.use('/api/vehicles', vehicleRoutes);
-app.use('/api/fuel', fuelRoutes);
+//app.use('/api/vehicles', vehicleRoutes);
+app.use('/api',fuelRoutes);
 app.use('/api/sla', slaRoutes);
 app.use('/api/gps', gpsBackend);
 app.use(ownerDashboardRoutes);
 app.use(liveTrackingRoutes);
-
+app.use('/api/fleet', fleetlocation);
 app.use(geofenceRoutes);
+
+app.use('/api', addVehicleRoutes);
 
 
 app.get('/', (req, res) => {

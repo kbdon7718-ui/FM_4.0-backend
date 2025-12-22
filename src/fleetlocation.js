@@ -6,31 +6,17 @@ import { createClient } from '@supabase/supabase-js';
 dotenv.config();
 
 /* ==============================
-   APP INIT
+   ROUTER INIT (FIX)
 ============================== */
-const app = express();
+const router = express.Router();
 
-app.use(
+router.use(
   cors({
     origin: (origin, callback) => {
-      // allow non-browser requests (Postman, server-to-server)
       if (!origin) return callback(null, true);
-
-      // allow localhost
-      if (origin.startsWith('http://localhost')) {
-        return callback(null, true);
-      }
-
-      // allow ALL Vercel preview + prod URLs
-      if (origin.endsWith('.vercel.app')) {
-        return callback(null, true);
-      }
-
-      // allow Render frontend (if any)
-      if (origin.endsWith('.onrender.com')) {
-        return callback(null, true);
-      }
-
+      if (origin.startsWith('http://localhost')) return callback(null, true);
+      if (origin.endsWith('.vercel.app')) return callback(null, true);
+      if (origin.endsWith('.onrender.com')) return callback(null, true);
       return callback(new Error('Not allowed by CORS'));
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -44,13 +30,9 @@ app.use(
   })
 );
 
-
-
-// 🔥 THIS IS MANDATORY
-app.options('*', cors());
-
-
-app.use(express.json());
+// 🔥 REQUIRED FOR PREFLIGHT
+router.options('*', cors());
+router.use(express.json());
 
 /* ==============================
    SUPABASE CLIENT
@@ -61,7 +43,7 @@ const supabase = createClient(
 );
 
 /* ==============================
-   SIMPLE AUTH (TEMP – HEADER BASED)
+   SIMPLE AUTH (UNCHANGED)
 ============================== */
 function authenticate(req, res, next) {
   const role = req.headers['x-role'];
@@ -96,21 +78,10 @@ function requireOwner(req, res, next) {
 }
 
 /* ==============================
-   HEALTH CHECK
-============================== */
-app.get('/', (req, res) => {
-  res.json({
-    status: 'ok',
-    service: 'Fleet Location Backend',
-    time: new Date().toISOString(),
-  });
-});
-
-/* ==============================
    SAVE LIVE GPS (FLEET)
 ============================== */
-app.post(
-  '/api/fleet/location',
+router.post(
+  '/location',
   authenticate,
   requireFleet,
   async (req, res) => {
@@ -118,7 +89,6 @@ app.post(
       const { latitude, longitude, speed, ignition } = req.body;
       const { vehicle_id } = req.user;
 
-      /* ---------- Validation ---------- */
       if (!vehicle_id || latitude == null || longitude == null) {
         return res.status(400).json({
           message: 'vehicle_id, latitude, longitude required',
@@ -140,7 +110,6 @@ app.post(
         });
       }
 
-      /* ---------- Rate limit (per vehicle) ---------- */
       const { data: last } = await supabase
         .from('gps_logs')
         .select('recorded_at')
@@ -150,15 +119,10 @@ app.post(
         .single();
 
       if (last) {
-        const diffMs =
-          Date.now() - new Date(last.recorded_at).getTime();
-
-        if (diffMs < 3000) {
-          return res.json({ ignored: true });
-        }
+        const diffMs = Date.now() - new Date(last.recorded_at).getTime();
+        if (diffMs < 3000) return res.json({ ignored: true });
       }
 
-      /* ---------- Insert GPS ---------- */
       const { error } = await supabase.from('gps_logs').insert([
         {
           vehicle_id,
@@ -182,8 +146,8 @@ app.post(
 /* ==============================
    ADD / ASSIGN VEHICLE (FLEET)
 ============================== */
-app.post(
-  '/api/fleet/assign-vehicle',
+router.post(
+  '/assign-vehicle',
   authenticate,
   requireFleet,
   async (req, res) => {
@@ -203,34 +167,25 @@ app.post(
         });
       }
 
-      /* Ensure fleet exists */
-      await supabase.from('fleet_users').upsert([
-        { fleet_id },
-      ]);
+      await supabase.from('fleet_users').upsert([{ fleet_id }]);
 
-      /* Find vehicle */
       let { data: vehicle, error: findError } = await supabase
         .from('vehicles')
         .select('*')
         .eq('vehicle_number', vehicle_number)
         .single();
 
-      if (findError && findError.code !== 'PGRST116') {
-        throw findError;
-      }
+      if (findError && findError.code !== 'PGRST116') throw findError;
 
-      /* Create vehicle if missing */
       if (!vehicle) {
         const { data: newVehicle, error: createError } =
           await supabase
             .from('vehicles')
-            .insert([
-              {
-                vehicle_number,
-                vehicle_type: vehicle_type || 'FLEET',
-                status: 'ACTIVE',
-              },
-            ])
+            .insert([{
+              vehicle_number,
+              vehicle_type: vehicle_type || 'FLEET',
+              status: 'ACTIVE',
+            }])
             .select()
             .single();
 
@@ -238,7 +193,6 @@ app.post(
         vehicle = newVehicle;
       }
 
-      /* Assign vehicle */
       const { error: updateError } = await supabase
         .from('fleet_users')
         .update({ assigned_vehicle_id: vehicle.vehicle_id })
@@ -261,8 +215,8 @@ app.post(
 /* ==============================
    GET DISTANCE (OWNER)
 ============================== */
-app.get(
-  '/api/fleet/distance',
+router.get(
+  '/distance',
   authenticate,
   requireOwner,
   async (req, res) => {
@@ -278,7 +232,6 @@ app.get(
       const startTime = new Date(start).toISOString();
       const endTime = new Date(end).toISOString();
 
-      /* ---------- Distance cache ---------- */
       const { data: cached } = await supabase
         .from('distance_logs')
         .select('distance_km')
@@ -295,7 +248,6 @@ app.get(
         });
       }
 
-      /* ---------- Calculate distance ---------- */
       const { data, error } = await supabase.rpc(
         'calculate_distance_km',
         {
@@ -307,21 +259,16 @@ app.get(
 
       if (error) throw error;
 
-      const distance = data || 0;
-
-      /* ---------- Cache result ---------- */
-      await supabase.from('distance_logs').insert([
-        {
-          vehicle_id,
-          start_time: startTime,
-          end_time: endTime,
-          distance_km: distance,
-        },
-      ]);
+      await supabase.from('distance_logs').insert([{
+        vehicle_id,
+        start_time: startTime,
+        end_time: endTime,
+        distance_km: data || 0,
+      }]);
 
       res.json({
         vehicle_id,
-        distance_km: distance,
+        distance_km: data || 0,
       });
     } catch (err) {
       console.error('Distance calc error:', err);
@@ -330,4 +277,4 @@ app.get(
   }
 );
 
-export { app };
+export default router;
