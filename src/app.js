@@ -11,6 +11,9 @@ import fleetlocation from './fleetlocation.js';
 import gpsBackend from './gps.backend.js';
 import fuelRoutes from "./fuel.js";
 import addVehicleRoutes from './addVehicle.js';
+import maintenanceRoutes from './maintenance.js';
+import assignDriverRoutes from './assigndriver.js';
+import companyRoutes from './companyroutes.js';
 
 
 const app = express();
@@ -45,6 +48,9 @@ app.use(express.json());
 ========================= */
 //app.use('/api/vehicles', vehicleRoutes);
 app.use('/api',fuelRoutes);
+app.use('/api', maintenanceRoutes);
+app.use('/api', assignDriverRoutes);
+app.use('/api', companyRoutes);
 app.use('/api/sla', slaRoutes);
 app.use('/api/gps', gpsBackend);
 app.use(ownerDashboardRoutes);
