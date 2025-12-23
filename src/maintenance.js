@@ -141,14 +141,17 @@ router.post("/maintenance", async (req, res) => {
 
 /* =====================================================
    RECENT MAINTENANCE ENTRIES
-   URL → GET /api/maintenance/recent
+   URL → GET /api/maintenance/recent?vehicle_id=uuid
 ===================================================== */
 router.get("/maintenance/recent", async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { vehicle_id } = req.query;
+
+    let query = supabase
       .from("vehicle_maintenance")
       .select(`
         maintenance_id,
+        vehicle_id,
         vehicle_number,
         maintenance_type,
         category,
@@ -161,8 +164,15 @@ router.get("/maintenance/recent", async (req, res) => {
         valid_upto,
         created_at
       `)
-      .order("created_at", { ascending: false })
-      .limit(10);
+      .order("created_at", { ascending: false });
+
+    if (vehicle_id) {
+      query = query.eq("vehicle_id", vehicle_id).limit(5);
+    } else {
+      query = query.limit(10);
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
     res.json(data || []);
