@@ -34,6 +34,7 @@ app.use(
       'Content-Type',
       'Authorization',
       'x-role',
+        'x-owner-id',
       'x-fleet-id',
       'x-vehicle-id',
     ],

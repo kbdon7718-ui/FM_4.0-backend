@@ -77,6 +77,21 @@ function requireOwner(req, res, next) {
   next();
 }
 
+function getDistanceMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) *
+    Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) ** 2;
+
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+
 /* ==============================
    SAVE LIVE GPS (FLEET)
 ============================== */
@@ -135,11 +150,152 @@ router.post(
 
       if (error) throw error;
 
+
+      
+
+      // ==============================
+// UPDATE DAILY DISTANCE
+// ==============================
+/* ==============================
+   STEP 2: UPDATE DAILY DISTANCE
+============================== */
+const today = new Date().toISOString().slice(0, 10);
+
+// fetch previous GPS point (second-last record)
+const { data: prev } = await supabase
+  .from('gps_logs')
+  .select('location')
+  .eq('vehicle_id', vehicle_id)
+  .order('recorded_at', { ascending: false })
+  .range(1, 1)
+  .single();
+
+if (prev?.location?.coordinates) {
+  const [prevLng, prevLat] = prev.location.coordinates;
+
+  const meters = getDistanceMeters(
+    prevLat,
+    prevLng,
+    latitude,
+    longitude
+  );
+
+  // safety: ignore GPS jumps (>2km)
+  if (meters > 0 && meters < 2000) {
+    const km = meters / 1000;
+
+    const { data: daily } = await supabase
+      .from('vehicle_daily_distance')
+      .select('*')
+      .eq('vehicle_id', vehicle_id)
+      .eq('date', today)
+      .single();
+
+    if (daily) {
+      await supabase
+        .from('vehicle_daily_distance')
+        .update({
+          distance_km: daily.distance_km + km,
+          last_lat: latitude,
+          last_lng: longitude,
+          updated_at: new Date(),
+        })
+        .eq('vehicle_id', vehicle_id)
+        .eq('date', today);
+    } else {
+      await supabase
+        .from('vehicle_daily_distance')
+        .insert([{
+          vehicle_id,
+          date: today,
+          distance_km: km,
+          last_lat: latitude,
+          last_lng: longitude,
+        }]);
+    }
+  }
+}
+
+
       res.json({ success: true });
     } catch (err) {
       console.error('GPS insert error:', err);
       res.status(500).json({ error: err.message });
     }
+  }
+);
+/* ==============================
+   GET DISTANCE (FLEET)
+============================== */
+router.get(
+  '/distance',
+  authenticate,
+  requireFleet,
+  async (req, res) => {
+    try {
+      const { vehicle_id, start, end } = req.query;
+
+      if (!vehicle_id || !start || !end) {
+        return res.status(400).json({
+          message: 'vehicle_id, start, end required',
+        });
+      }
+
+      const { data, error } = await supabase.rpc(
+        'calculate_distance_km',
+        {
+          v_id: vehicle_id,
+          start_time: start,
+          end_time: end,
+        }
+      );
+
+      if (error) throw error;
+
+      res.json({
+        vehicle_id,
+        distance_km: data || 0,
+      });
+    } catch (err) {
+      console.error('Fleet distance error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+
+// GET LAST LOCATION OF VEHICLE
+router.get(
+  '/fleet/last-location/:vehicle_id',
+  authenticate,
+  requireFleet,
+  async (req, res) => {
+    const { vehicle_id } = req.params;
+
+    const { data, error } = await supabase
+      .from('gps_logs')
+      .select('location, speed, recorded_at')
+      .eq('vehicle_id', vehicle_id)
+      .order('recorded_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error || !data) {
+      return res.status(404).json({ message: 'No GPS data' });
+    }
+
+    // extract POINT(lng lat)
+    const match = data.location.match(/POINT\(([-\d.]+) ([-\d.]+)\)/);
+    if (!match) {
+      return res.status(500).json({ message: 'Invalid GPS format' });
+    }
+
+    res.json({
+      latitude: parseFloat(match[2]),
+      longitude: parseFloat(match[1]),
+      speed: data.speed,
+      recorded_at: data.recorded_at,
+    });
   }
 );
 
@@ -212,68 +368,80 @@ router.post(
   }
 );
 
+
+/* ==============================
+   FLEET ROUTE (TODAY)
+============================== */
+router.get(
+  '/route',
+  authenticate,
+  requireFleet,
+  async (req, res) => {
+    try {
+      const { vehicle_id, date } = req.query;
+
+      if (!vehicle_id || !date) {
+        return res.status(400).json({
+          message: 'vehicle_id and date required',
+        });
+      }
+
+      const start = new Date(date);
+      start.setHours(0, 0, 0, 0);
+
+      const end = new Date(date);
+      end.setHours(23, 59, 59, 999);
+
+      const { data, error } = await supabase
+        .from('gps_logs')
+        .select('location, speed, recorded_at')
+        .eq('vehicle_id', vehicle_id)
+        .gte('recorded_at', start.toISOString())
+        .lte('recorded_at', end.toISOString())
+        .order('recorded_at', { ascending: true });
+
+      if (error) throw error;
+
+      const route = data
+        .filter(p => p.location)
+        .map(p => ({
+          lat: p.location.coordinates[1],
+          lng: p.location.coordinates[0],
+          speed: p.speed,
+          time: p.recorded_at,
+        }));
+
+      res.json({ route });
+    } catch (err) {
+      console.error('Fleet route error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
 /* ==============================
    GET DISTANCE (OWNER)
 ============================== */
 router.get(
-  '/distance',
+  '/distance-today',
   authenticate,
-  requireOwner,
+  requireFleet,
   async (req, res) => {
-    try {
-      const { vehicle_id, start, end } = req.query;
+    const { vehicle_id } = req.query;
+    const today = new Date().toISOString().slice(0, 10);
 
-      if (!vehicle_id || !start || !end) {
-        return res.status(400).json({
-          message: 'vehicle_id, start, end required',
-        });
-      }
+    const { data } = await supabase
+      .from('vehicle_daily_distance')
+      .select('distance_km')
+      .eq('vehicle_id', vehicle_id)
+      .eq('date', today)
+      .single();
 
-      const startTime = new Date(start).toISOString();
-      const endTime = new Date(end).toISOString();
-
-      const { data: cached } = await supabase
-        .from('distance_logs')
-        .select('distance_km')
-        .eq('vehicle_id', vehicle_id)
-        .eq('start_time', startTime)
-        .eq('end_time', endTime)
-        .single();
-
-      if (cached) {
-        return res.json({
-          vehicle_id,
-          distance_km: cached.distance_km,
-          cached: true,
-        });
-      }
-
-      const { data, error } = await supabase.rpc(
-        'calculate_distance_km',
-        {
-          v_id: vehicle_id,
-          start_time: startTime,
-          end_time: endTime,
-        }
-      );
-
-      if (error) throw error;
-
-      await supabase.from('distance_logs').insert([{
-        vehicle_id,
-        start_time: startTime,
-        end_time: endTime,
-        distance_km: data || 0,
-      }]);
-
-      res.json({
-        vehicle_id,
-        distance_km: data || 0,
-      });
-    } catch (err) {
-      console.error('Distance calc error:', err);
-      res.status(500).json({ error: err.message });
-    }
+    res.json({
+      vehicle_id,
+      date: today,
+      distance_km: data?.distance_km || 0,
+    });
   }
 );
 
