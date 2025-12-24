@@ -11,7 +11,10 @@ router.get('/api/supervisor/live-tracking', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('live_vehicle_positions')
-      .select('*');
+.select('vehicle_id, vehicle_number, lat, lng, speed, recorded_at')
+.order('recorded_at', { ascending: false });
+
+
 
     if (error) throw error;
 
@@ -89,7 +92,10 @@ router.get('/api/owner/live-tracking', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('live_vehicle_positions')
-      .select('*');
+.select('vehicle_id, vehicle_number, lat, lng, speed, recorded_at')
+.order('recorded_at', { ascending: false });
+
+
 
     if (error) throw error;
 
