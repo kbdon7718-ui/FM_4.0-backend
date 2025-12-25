@@ -26,7 +26,7 @@ app.use(
     origin: [
       'http://localhost:3000',
       'http://localhost:5173',
-      'https://fm-4-0-7kgj-aisgadiro-azads-projects-d43d3e52.vercel.app',
+      'https://fm-4-0-bi645m7uo-azads-projects-d43d3e52.vercel.app',
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
