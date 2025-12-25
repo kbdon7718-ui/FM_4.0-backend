@@ -30,6 +30,11 @@ const corsOptions = {
       process.env.FRONTEND_URL,
     ].filter(Boolean);
 
+    // Allow all origins when explicitly enabled (useful for testing / GitHub.dev)
+    if (process.env.ALLOW_ALL_ORIGINS === 'true') {
+      return callback(null, true);
+    }
+
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
