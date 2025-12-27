@@ -70,6 +70,54 @@ router.post("/fuel", async (req, res) => {
 
     if (error) throw error;
 
+    // AFTER INSERT: compute fuel analysis if previous odometer exists
+    try {
+      // fetch previous fuel entry for this vehicle (excluding current)
+      const { data: prevEntries, error: prevErr } = await supabase
+        .from('fuel_entries')
+        .select('fuel_entry_id, fuel_date, odometer_reading, fuel_quantity')
+        .eq('vehicle_id', vehicle_id)
+        .lt('fuel_date', fuel_date)
+        .order('fuel_date', { ascending: false })
+        .limit(1);
+
+      if (prevErr) throw prevErr;
+
+      if (prevEntries && prevEntries.length > 0 && prevEntries[0].odometer_reading != null && odometer_reading != null) {
+        const prev = prevEntries[0];
+        const distance_covered = Number(odometer_reading) - Number(prev.odometer_reading);
+
+        if (distance_covered > 0) {
+          // fetch vehicle expected mileage
+          const { data: vehicleData } = await supabase
+            .from('vehicles')
+            .select('vehicle_id, expected_mileage')
+            .eq('vehicle_id', vehicle_id)
+            .single();
+
+          const expected_mileage = vehicleData?.expected_mileage || null;
+
+          const actual_mileage = Number(distance_covered) / Number(fuel_quantity || 1);
+          const fuel_variance = expected_mileage ? (expected_mileage - actual_mileage) : null;
+
+          const theft_flag = expected_mileage ? (actual_mileage < (expected_mileage * 0.5)) : false;
+
+          await supabase.from('fuel_analysis').insert([{
+            vehicle_id,
+            fuel_given: fuel_quantity,
+            distance_covered: distance_covered,
+            expected_mileage: expected_mileage,
+            actual_mileage: actual_mileage,
+            fuel_variance: fuel_variance,
+            theft_flag: theft_flag,
+            analysis_date: fuel_date,
+          }]);
+        }
+      }
+    } catch (analysisErr) {
+      console.error('Fuel analysis compute error:', analysisErr);
+    }
+
     res.json(data);
   } catch (err) {
     console.error("Fuel entry error:", err);

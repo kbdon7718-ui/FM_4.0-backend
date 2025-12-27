@@ -128,13 +128,68 @@ router.post('/api/gps/update', async (req, res) => {
         vehicleGeofenceState[vehicle_id][g.geofence_id] || 'OUTSIDE';
 
       if (distance <= g.radius_meters && prev === 'OUTSIDE') {
-        await supabase.from('geofence_logs').insert([
-          {
-            vehicle_id,
-            geofence_id: g.geofence_id,
-            arrival_time: new Date(),
-          },
-        ]);
+        // compute arrival details using any assignment for this geofence + vehicle
+        let status = null;
+        let delay_minutes = null;
+        let scheduled_time = null;
+
+        try {
+          const { data: assignment } = await supabase
+            .from('geofence_assignments')
+            .select('expected_entry_time, grace_minutes, company_id')
+            .eq('geofence_id', g.geofence_id)
+            .eq('vehicle_id', vehicle_id)
+            .limit(1)
+            .single();
+
+          const arrivalTime = new Date();
+
+          if (assignment && assignment.expected_entry_time) {
+            scheduled_time = assignment.expected_entry_time; // time string
+
+            // parse scheduled_time (HH:MM:SS or HH:MM)
+            const now = arrivalTime;
+            const parts = String(scheduled_time).split(':');
+            const scheduled = new Date(now);
+            scheduled.setHours(Number(parts[0] || 0), Number(parts[1] || 0), Number(parts[2] || 0));
+
+            const diffMs = now - scheduled;
+            delay_minutes = Math.round(diffMs / 60000);
+
+            const grace = assignment.grace_minutes || 0;
+            if (delay_minutes <= grace) status = 'ON_TIME';
+            else status = 'LATE';
+
+            // insert arrival_logs for owner/supervisor visibility
+            await supabase.from('arrival_logs').insert([{
+              company_id: assignment.company_id || g.company_id || null,
+              shift_id: null,
+              vehicle_id,
+              scheduled_time: scheduled_time,
+              actual_arrival_time: arrivalTime,
+              delay_minutes: delay_minutes,
+              status: status,
+            }]);
+          }
+
+          // insert geofence_log with status if computed
+          await supabase.from('geofence_logs').insert([
+            {
+              vehicle_id,
+              geofence_id: g.geofence_id,
+              arrival_time: new Date(),
+              delay_minutes: delay_minutes,
+              status: status,
+            },
+          ]);
+
+        } catch (insertErr) {
+          console.error('Geofence arrival insert error:', insertErr);
+          // fallback: insert minimal log
+          await supabase.from('geofence_logs').insert([
+            { vehicle_id, geofence_id: g.geofence_id, arrival_time: new Date() },
+          ]);
+        }
 
         vehicleGeofenceState[vehicle_id][g.geofence_id] = 'INSIDE';
       }

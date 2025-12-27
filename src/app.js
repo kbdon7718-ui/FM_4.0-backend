@@ -13,6 +13,7 @@ import addVehicleRoutes from './addVehicle.js';
 import maintenanceRoutes from './maintenance.js';
 import assignDriverRoutes from './assigndriver.js';
 import companyRoutes from './companyroutes.js';
+import correlationRoutes from './correlation.js';
 
 const app = express();
 
@@ -72,6 +73,7 @@ app.use('/api', maintenanceRoutes);
 app.use('/api', assignDriverRoutes);
 app.use('/api', companyRoutes);
 app.use('/api', addVehicleRoutes);
+app.use('/api', correlationRoutes);
 app.use('/api/sla', slaRoutes);
 app.use('/api/gps', gpsBackend);
 app.use('/api/fleet', fleetlocation);

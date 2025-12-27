@@ -266,7 +266,7 @@ router.get(
 
 // GET LAST LOCATION OF VEHICLE
 router.get(
-  '/fleet/last-location/:vehicle_id',
+  '/last-location/:vehicle_id',
   authenticate,
   requireFleet,
   async (req, res) => {
