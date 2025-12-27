@@ -20,35 +20,26 @@ const app = express();
 /* =========================
    CORS CONFIG - PRODUCTION READY
 ========================= */
-const corsOptions = {
-  origin: function (origin, callback) {
-    const allowedOrigins = [
-      'http://localhost:3000',
-      'http://localhost:5173',
-      'https://fm-4-0.vercel.app',
-      'https://fm4-0-ui.vercel.app',
-      'https://fleetmaster.vercel.app',
-      process.env.FRONTEND_URL,
-    ].filter(Boolean);
+const corsOptions = (() => {
+  const defaults = ['http://localhost:3000', 'http://localhost:5173'];
+  const envFrontend = process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : [];
+  const envList = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()).filter(Boolean) : [];
+  const allowedOrigins = Array.from(new Set([...defaults, ...envFrontend, ...envList]));
 
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization',
-    'x-role',
-    'x-owner-id',
-    'x-fleet-id',
-    'x-vehicle-id',
-  ],
-  maxAge: 86400, // 24 hours
-};
+  return {
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'Accept'],
+  };
+})();
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
