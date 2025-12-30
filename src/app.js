@@ -78,9 +78,9 @@ app.use('/api', correlationRoutes);
 app.use('/api/sla', slaRoutes);
 app.use('/api/gps', gpsBackend);
 app.use('/api/fleet', fleetlocation);
-app.use(ownerDashboardRoutes);
-app.use(liveTrackingRoutes);
-app.use(geofenceRoutes);
+app.use('/api', ownerDashboardRoutes);
+app.use('/api', liveTrackingRoutes);
+app.use('/api', geofenceRoutes);
 
 /* =========================
    HEALTH CHECK

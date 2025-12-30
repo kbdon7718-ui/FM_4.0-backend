@@ -33,7 +33,7 @@ function requireOwner(req, res, next) {
 /* ===============================
    ADD VEHICLE (OWNER ONLY)
 =============================== */
-router.post('/vehicles', requireOwner, async (req, res) => {
+router.post('/owner/vehicles', requireOwner, async (req, res) => {
   try {
     const {
       vehicle_number,
@@ -101,7 +101,7 @@ router.post('/vehicles', requireOwner, async (req, res) => {
 /* ===============================
    GET VEHICLES (OWNER ONLY)
 =============================== */
-router.get('/vehicles', requireOwner, async (req, res) => {
+router.get('/owner/vehicles', requireOwner, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('vehicles')
@@ -117,6 +117,92 @@ router.get('/vehicles', requireOwner, async (req, res) => {
   } catch (err) {
     console.error('Fetch vehicles error:', err);
     res.status(500).json({ error: 'Failed to fetch vehicles' });
+  }
+});
+
+router.put('/owner/vehicles/:vehicle_id', requireOwner, async (req, res) => {
+  try {
+    const { vehicle_id } = req.params;
+
+    const {
+      vehicle_number,
+      vehicle_type,
+      manufacturer,
+      model,
+      manufacturing_year,
+      fuel_type,
+      tank_capacity,
+      expected_mileage,
+      gps_provider,
+      gps_device_id,
+      registration_state,
+      status,
+    } = req.body;
+
+    const updateFields = {};
+    if (vehicle_number !== undefined) {
+      updateFields.vehicle_number = vehicle_number ? vehicle_number.toUpperCase() : null;
+    }
+    if (vehicle_type !== undefined) updateFields.vehicle_type = vehicle_type;
+    if (manufacturer !== undefined) updateFields.manufacturer = manufacturer;
+    if (model !== undefined) updateFields.model = model;
+    if (manufacturing_year !== undefined) updateFields.manufacturing_year = manufacturing_year;
+    if (registration_state !== undefined) updateFields.registration_state = registration_state;
+    if (fuel_type !== undefined) updateFields.fuel_type = fuel_type;
+    if (tank_capacity !== undefined) updateFields.tank_capacity = tank_capacity;
+    if (expected_mileage !== undefined) updateFields.expected_mileage = expected_mileage;
+    if (gps_provider !== undefined) updateFields.gps_provider = gps_provider;
+    if (gps_device_id !== undefined) updateFields.gps_device_id = gps_device_id;
+    if (status !== undefined) updateFields.status = status;
+
+    const { data, error } = await supabase
+      .from('vehicles')
+      .update(updateFields)
+      .eq('vehicle_id', vehicle_id)
+      .eq('owner_id', req.owner_id)
+      .select();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    if (!data || data.length === 0) {
+      return res.status(404).json({ error: 'Vehicle not found' });
+    }
+
+    res.json({
+      success: true,
+      vehicle: data[0],
+    });
+  } catch (err) {
+    console.error('Update vehicle error:', err);
+    res.status(500).json({ error: 'Failed to update vehicle' });
+  }
+});
+
+router.delete('/owner/vehicles/:vehicle_id', requireOwner, async (req, res) => {
+  try {
+    const { vehicle_id } = req.params;
+
+    const { data, error } = await supabase
+      .from('vehicles')
+      .delete()
+      .eq('vehicle_id', vehicle_id)
+      .eq('owner_id', req.owner_id)
+      .select();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    if (!data || data.length === 0) {
+      return res.status(404).json({ error: 'Vehicle not found' });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete vehicle error:', err);
+    res.status(500).json({ error: 'Failed to delete vehicle' });
   }
 });
 

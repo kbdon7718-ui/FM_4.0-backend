@@ -28,7 +28,7 @@ const vehicleGeofenceState = {}; // vehicle_id -> geofence_id -> INSIDE/OUTSIDE
 /* ============================
    1️⃣ CREATE COMPANY
 ============================ */
-router.post('/api/companies', async (req, res) => {
+router.post('/companies', async (req, res) => {
   try {
     const {
       company_name,
@@ -61,7 +61,7 @@ router.post('/api/companies', async (req, res) => {
 /* ============================
    2️⃣ CREATE GEOFENCE (COMPANY BASED)
 ============================ */
-router.post('/api/geofences', async (req, res) => {
+router.post('/geofences', async (req, res) => {
   try {
     const {
       company_id,
@@ -69,7 +69,6 @@ router.post('/api/geofences', async (req, res) => {
       center_lat,
       center_lng,
       radius_meters,
-     
     } = req.body;
 
     const { error } = await supabase.from('geofences').insert([
@@ -78,7 +77,7 @@ router.post('/api/geofences', async (req, res) => {
         location_name,
         center: `POINT(${center_lng} ${center_lat})`,
         radius_meters,
-        },
+      },
     ]);
 
     if (error) throw error;
@@ -91,7 +90,7 @@ router.post('/api/geofences', async (req, res) => {
 /* ============================
    3️⃣ GPS INGESTION + GEOFENCE ENTRY
 ============================ */
-router.post('/api/gps/update', async (req, res) => {
+router.post('/gps/update', async (req, res) => {
   try {
     const { vehicle_id, latitude, longitude } = req.body;
     if (!vehicle_id || !latitude || !longitude) {
@@ -209,7 +208,7 @@ router.post('/api/gps/update', async (req, res) => {
 /* ============================
    4️⃣ SUPERVISOR ALERTS (POLLING)
 ============================ */
-router.get('/api/supervisor/arrival-alerts', async (req, res) => {
+router.get('/supervisor/arrival-alerts', async (req, res) => {
   const { data, error } = await supabase
     .from('arrival_logs')
     .select(`
@@ -229,12 +228,36 @@ router.get('/api/supervisor/arrival-alerts', async (req, res) => {
   res.json(data);
 });
 
+router.get('/arrival-logs', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('arrival_logs')
+      .select(`
+        arrival_log_id,
+        status,
+        delay_minutes,
+        scheduled_time,
+        actual_arrival_time,
+        vehicles ( vehicle_number ),
+        companies ( company_name ),
+        company_shifts ( shift_name )
+      `)
+      .order('actual_arrival_time', { ascending: false });
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data || []);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 /* ============================
    5️⃣ SUPERVISOR ACTIONS
 ============================ */
 
 /* Add Note */
-router.post('/api/supervisor/arrival-note', async (req, res) => {
+router.post('/supervisor/arrival-note', async (req, res) => {
   const { arrival_log_id, supervisor_note, action_taken } = req.body;
 
   const { error } = await supabase
@@ -251,7 +274,7 @@ router.post('/api/supervisor/arrival-note', async (req, res) => {
 });
 
 /* Mark Vehicle Under Maintenance */
-router.post('/api/supervisor/vehicle-maintenance', async (req, res) => {
+router.post('/supervisor/vehicle-maintenance', async (req, res) => {
   const { vehicle_id } = req.body;
 
   const { error } = await supabase
@@ -264,7 +287,7 @@ router.post('/api/supervisor/vehicle-maintenance', async (req, res) => {
 });
 
 /* Assign Backup Bus */
-router.post('/api/supervisor/assign-backup', async (req, res) => {
+router.post('/supervisor/assign-backup', async (req, res) => {
   const {
     company_id,
     old_vehicle_id,
@@ -304,7 +327,7 @@ router.post('/api/supervisor/assign-backup', async (req, res) => {
 /* ============================
    GET COMPANIES (FOR FRONTEND)
 ============================ */
-router.get('/api/companies', async (req, res) => {
+router.get('/companies', async (req, res) => {
   const { data, error } = await supabase
     .from('companies')
     .select('*')
@@ -325,7 +348,7 @@ router.get('/api/companies', async (req, res) => {
 /* ============================
    UPDATE GEOFENCE
 ============================ */
-router.put('/api/geofences/:id', async (req, res) => {
+router.put('/geofences/:id', async (req, res) => {
   const { id } = req.params;
   const { company_name, center_lat, center_lng, radius_meters } = req.body;
 
@@ -345,7 +368,7 @@ router.put('/api/geofences/:id', async (req, res) => {
 /* ============================
    DELETE GEOFENCE
 ============================ */
-router.delete('/api/geofences/:id', async (req, res) => {
+router.delete('/geofences/:id', async (req, res) => {
   const { id } = req.params;
 
   const { error } = await supabase
@@ -359,7 +382,7 @@ router.delete('/api/geofences/:id', async (req, res) => {
 
 
  //for[ ✏️ ] [ 🗑️ ] [ ➕ Assign Vehicle ]
-router.post('/api/geofence-assignments', async (req, res) => {
+router.post('/geofence-assignments', async (req, res) => {
   const {
     geofence_id,
     vehicle_id,

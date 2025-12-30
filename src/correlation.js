@@ -8,7 +8,7 @@ const router = express.Router();
   Payload (optional): { vehicle_id, start_date, end_date }
   Runs correlation logic and creates entries in risk_assessments
 */
-router.post('/api/correlation/run', async (req, res) => {
+router.post('/correlation/run', async (req, res) => {
   try {
     const { vehicle_id, start_date, end_date } = req.body || {};
 

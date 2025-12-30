@@ -7,7 +7,7 @@ const router = express.Router();
    SUPERVISOR LIVE TRACKING
    (READ ONLY) ✅ REAL GPS
 ============================== */
-router.get('/api/supervisor/live-tracking', async (req, res) => {
+router.get('/supervisor/live-tracking', async (req, res) => {
   try {
     const today = new Date().toISOString().slice(0, 10);
 
@@ -62,7 +62,7 @@ router.get('/api/supervisor/live-tracking', async (req, res) => {
    GPS LOGS FOR ROUTE TRACING
    (BY VEHICLE AND DATE) ✅ REAL GPS
 ============================== */
-router.get('/api/gps-logs', async (req, res) => {
+router.get('/gps-logs', async (req, res) => {
   try {
     const { vehicle_id, date } = req.query;
 
@@ -106,14 +106,12 @@ router.get('/api/gps-logs', async (req, res) => {
    OWNER LIVE TRACKING
    (READ ONLY) ✅ SAME REAL DATA
 ============================== */
-router.get('/api/owner/live-tracking', async (req, res) => {
+router.get('/owner/live-tracking', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('live_vehicle_positions')
-.select('vehicle_id, vehicle_number, lat, lng, speed, recorded_at')
-.order('recorded_at', { ascending: false });
-
-
+      .select('vehicle_id, vehicle_number, lat, lng, speed, recorded_at')
+      .order('recorded_at', { ascending: false });
 
     if (error) throw error;
 
@@ -141,7 +139,7 @@ router.get('/api/owner/live-tracking', async (req, res) => {
    OWNER ROUTE TRACING
    (REAL GPS + REAL STOPS)
 ============================== */
-router.get('/api/owner/route-history', async (req, res) => {
+router.get('/owner/route-history', async (req, res) => {
   try {
     const { vehicle_id, date } = req.query;
 

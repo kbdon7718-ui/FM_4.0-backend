@@ -11,7 +11,7 @@ const supabase = createClient(
 /* =========================
    OWNER DASHBOARD SUMMARY
 ========================= */
-router.get('/api/owner/dashboard', async (req, res) => {
+router.get('/owner/dashboard', async (req, res) => {
   try {
     const [{ count: totalVehicles }, { count: onTimeCount }] =
       await Promise.all([
