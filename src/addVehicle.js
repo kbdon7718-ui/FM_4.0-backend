@@ -1,5 +1,6 @@
 import express from 'express';
 import { createClient } from '@supabase/supabase-js';
+import { listMillitrackDevices } from './millitrackSync.js';
 
 const router = express.Router();
 
@@ -16,19 +17,35 @@ const supabase = createClient(
 =============================== */
 function requireOwner(req, res, next) {
   const role = req.headers['x-role'];
-  const ownerId = req.headers['x-owner-id'];
+  const ownerIdRaw = req.headers['x-owner-id'];
+  const ownerId = String(ownerIdRaw || '').trim();
 
   if (role !== 'OWNER') {
     return res.status(403).json({ error: 'Owner access only' });
   }
 
-  if (!ownerId) {
+  if (!ownerId || ownerId === 'undefined' || ownerId === 'null') {
     return res.status(400).json({ error: 'x-owner-id header required' });
+  }
+
+  const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidLike.test(ownerId)) {
+    return res.status(400).json({ error: 'x-owner-id must be a valid UUID' });
   }
 
   req.owner_id = ownerId;
   next();
 }
+
+router.get('/integrations/millitrack/devices', requireOwner, async (req, res) => {
+  try {
+    const devices = await listMillitrackDevices();
+    res.json({ success: true, data: devices });
+  } catch (err) {
+    console.error('Millitrack devices list error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 /* ===============================
    ADD VEHICLE (OWNER ONLY)
