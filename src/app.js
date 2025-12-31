@@ -22,7 +22,7 @@ const app = express();
 ========================= */
 const corsOptions = (() => {
   const normalizeOrigin = (value) => String(value || '').trim().replace(/\/$/, '');
-  const defaults = ['http://localhost:3000', 'http://localhost:5173',
+  const defaults = ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173',
     'https://fm-4-0-beioxc7b5-azads-projects-d43d3e52.vercel.app', 'https://fm-4-0.vercel.app'];
   const envFrontend = process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : [];
   const envList = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()).filter(Boolean) : [];
